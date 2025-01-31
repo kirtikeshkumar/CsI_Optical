@@ -1,79 +1,135 @@
+/*This is the main construction file where we assign all the attributes of the
+ * detector and the environment and the material of the detector*/
+
+// Including the construction header file
 #include "construction.hh"
+#include "detector.hh"
+#include <cmath>
 
-MyDetectorConstruction::MyDetectorConstruction() {}
+MyDetectorConstruction::MyDetectorConstruction() {
 
+  DefineMaterials();
+
+  xWorld = 0.25 * m;
+  yWorld = 0.25 * m;
+  zWorld = 1.25 * m;
+}
+
+// The destructor function
 MyDetectorConstruction::~MyDetectorConstruction() {}
 
-G4VPhysicalVolume *MyDetectorConstruction::Construct() {
+void MyDetectorConstruction::DefineMaterials() {
+  // G4NistManager to get the required elements
   G4NistManager *nist = G4NistManager::Instance();
 
-  // Create material SiO2
-  G4Material *SiO2 = new G4Material("SiO2", 2.201 * g / cm3, 2);
-  SiO2->AddElement(nist->FindOrBuildElement("Si"), 1);
-  SiO2->AddElement(nist->FindOrBuildElement("O"), 2);
-
-  // Create material H2O
-  G4Material *H2O = new G4Material("H2O", 1.000 * g / cm3, 2);
-  H2O->AddElement(nist->FindOrBuildElement("H"), 2);
-  H2O->AddElement(nist->FindOrBuildElement("O"), 1);
-
-  // Create element Carbon (C)
-  G4Element *C = nist->FindOrBuildElement("C");
-
-  // Create material Aerogel
-  G4Material *Aerogel = new G4Material("Aerogel", 0.200 * g / cm3, 3);
-  Aerogel->AddMaterial(SiO2, 62.5 * perCent);
-  Aerogel->AddMaterial(H2O, 37.4 * perCent);
-  Aerogel->AddElement(C, 0.1 * perCent);
-
-  // Define energy and refractive indices
+  worldMat = nist->FindOrBuildMaterial("G4_Galactic"); // defining world
+                                                       // material
+  // Vaccum = nist->FindOrBuildMaterial("G4_Galactic");
+  // Optical Properties of world
   G4double energy[2] = {1.239841939 * eV / 0.9, 1.239841939 * eV / 0.2};
-  G4double rindexAerogel[2] = {1.1, 1.1};
-  G4double rindexWorld[2] = {1.0, 1.0};
-
-  // Set material properties for Aerogel
-  G4MaterialPropertiesTable *mptAerogel = new G4MaterialPropertiesTable();
-  mptAerogel->AddProperty("RINDEX", energy, rindexAerogel, 2);
-  Aerogel->SetMaterialPropertiesTable(mptAerogel);
-
-  // Set material properties for the world material
-  G4Material *worldMat = nist->FindOrBuildMaterial("G4_AIR");
+  G4double rindexWorld[2] = {
+      1.0,
+      1.0}; // refractive index of world over the energy range in above variable
   G4MaterialPropertiesTable *mptWorld = new G4MaterialPropertiesTable();
   mptWorld->AddProperty("RINDEX", energy, rindexWorld, 2);
   worldMat->SetMaterialPropertiesTable(mptWorld);
 
-  // Define the world volume
-  G4Box *solidWorld = new G4Box("solidWorld", 0.5 * m, 0.5 * m, 0.5 * m);
-  G4LogicalVolume *logicWorld =
-      new G4LogicalVolume(solidWorld, worldMat, "logicWorld");
-  G4VPhysicalVolume *physWorld =
-      new G4PVPlacement(nullptr,                   // No rotation
-                        G4ThreeVector(0., 0., 0.), // Position
-                        logicWorld,                // Logical volume
-                        "physWorld",               // Name
-                        nullptr,                   // No mother volume
-                        false,                     // No many placement
-                        0,                         // Copy number
-                        true                       // Check overlaps
-      );
+  // Cesium Iodide (no doping)
+  CsI = nist->FindOrBuildMaterial("G4_CESIUM_IODIDE");
 
-  // Define the radiator volume
-  G4Box *solidRadiator = new G4Box("solidRadiator", 0.4 * m, 0.4 * m, 0.01 * m);
-  G4LogicalVolume *logicRadiator =
-      new G4LogicalVolume(solidRadiator, Aerogel, "logicalRadiator");
-  G4VPhysicalVolume *physRadiator =
-      new G4PVPlacement(nullptr,                         // No rotation
-                        G4ThreeVector(0., 0., 0.25 * m), // Position
-                        logicRadiator,                   // Logical volume
-                        "physRadiator",                  // Name
-                        logicWorld,                      // Mother volume
-                        false,                           // No many placement
-                        0,                               // Copy number
-                        true                             // Check overlaps
-      );
+  // Cesium Iodide (Tl doped) (doping conc. 0.355%wt from
+  // doi:10.1088/1742-6596/1144/1/012105)
+  G4double fractionmass;
+  G4double TlDopantMassFraction = 0.355; // modify the dopant mass fraction here
+  G4double CsIDopantMassFraction = 1.0 - TlDopantMassFraction;
+  CsI_Tl = new G4Material("CsI_Tl", 4.51 * g / cm3, 2);
+  CsI_Tl->AddMaterial(CsI, fractionmass = CsIDopantMassFraction);
+  CsI_Tl->AddElement(nist->FindOrBuildElement("Tl"),
+                     fractionmass = TlDopantMassFraction);
+
+  // Optical Properties of CsI(Tl) are defined here
+  G4double energyCsI_Tl[2] = {
+      1.239841939 * eV / 0.9,
+      1.239841939 * eV /
+          0.2}; // here wavelength range of 200-900 nm is considered as a block
+                // more points can be added as required
+  G4double rindexCsI_Tl[2] = {
+      1.79, 1.79}; // a constant refractive index of 1.79 over entire range
+                   // considered. more details can be added by changing the
+                   // above energy and corresponding r index
+
+  // emmission spectra of CsI(Tl) taken from Luxium datasheet
+  G4double energy_spectrum[27] = {
+      1.7529 * eV, 1.8036 * eV, 1.8651 * eV, 1.9165 * eV, 2.0102 * eV,
+      2.0653 * eV, 2.1186 * eV, 2.1590 * eV, 2.2228 * eV, 2.2789 * eV,
+      2.3442 * eV, 2.3878 * eV, 2.4430 * eV, 2.4801 * eV, 2.5185 * eV,
+      2.5399 * eV, 2.5507 * eV, 2.5950 * eV, 2.6447 * eV, 2.6802 * eV,
+      2.7583 * eV, 2.7969 * eV, 2.8592 * eV, 2.9290 * eV, 3.1004 * eV,
+      3.3359 * eV, 3.5461 * eV}; // this is the list of energies over which
+                                 // emission spectra is defined
+  G4double energy_fraction[27] = {0.1226, 0.1963, 0.2859, 0.3994, 0.5985,
+                                  0.7041, 0.7997, 0.8773, 0.9590, 0.9849,
+                                  0.9472, 0.8855, 0.8000, 0.7284, 0.6468,
+                                  0.5991, 0.5632, 0.4737, 0.4001, 0.3544,
+                                  0.2748, 0.245,  0.2013, 0.1695, 0.1138,
+                                  0.0562, 0.0165}; // Intensity of emission at
+                                                   // energies as given above
+  G4double absorption[2] = {
+      28 * cm, 34 * cm}; // absorption length (needs value modification)
+  G4MaterialPropertiesTable *mptCsITl = new G4MaterialPropertiesTable();
+  mptCsITl->AddProperty("RINDEX", energy, rindexCsI_Tl, 2);
+  mptCsITl->AddProperty("SCINTILLATIONCOMPONENT1", energy_spectrum,
+                        energy_fraction, 27);
+  mptCsITl->AddConstProperty("SCINTILLATIONYIELD",
+                             54 / keV); // Light yeild in photons/keV
+  mptCsITl->AddConstProperty("RESOLUTIONSCALE",
+                             1.0); // stdDev in no. of photons =
+                                   // sqrt(SCINTILLATIONTEILD)*RESOLUTIONSCALE
+  mptCsITl->AddConstProperty("SCINTILLATIONTIMECONSTANT1",
+                             1000 * ns); // Primary Decay Time
+  mptCsITl->AddConstProperty("SCINTILLATIONYIELD1", 1.);
+  mptCsITl->AddProperty("ABSLENGTH", energy, absorption, 2);
+  CsI_Tl->SetMaterialPropertiesTable(mptCsITl);
+
+  // Defining mirror surface
+  mirrorSurface = new G4OpticalSurface("mirrorSurface");
+  mirrorSurface->SetType(dielectric_metal);
+  mirrorSurface->SetFinish(polished);
+  mirrorSurface->SetModel(unified);
+  energy[0] = 1.239841939 * eV / 0.9;
+  energy[1] = 1.239841939 * eV / 0.2;
+  G4double reflectivity[2] = {1.0, 1.0};
+  G4MaterialPropertiesTable *mptMirror = new G4MaterialPropertiesTable();
+  mptMirror->AddProperty("REFLECTIVITY", energy, reflectivity, 2);
+  mirrorSurface->SetMaterialPropertiesTable(mptMirror);
+}
+void MyDetectorConstruction::ConstructSetup() {
+  // Define the size of the scintillator (23 cm × 23 cm × 10 mm)
+  solidScint = new G4Box("Scint", 11.50 * mm, 11.50 * mm, 5.0 * mm);
+
+  // Create logical volume with CsI(Tl) material
+  logicScint = new G4LogicalVolume(solidScint, CsI_Tl, "logicScint");
+
+  // Apply a mirror surface (optional)
+  skin = new G4LogicalSkinSurface("skin", logicScint, mirrorSurface);
+
+  // Place scintillator in the world
+  physScint = new G4PVPlacement(0, G4ThreeVector(0., 0., 0.2 * m), logicScint,
+                                "physScint", logicWorld, false, 1, true);
+}
+
+G4VPhysicalVolume *MyDetectorConstruction::Construct() {
+  // Define the world volume
+  solidWorld = new G4Box("solidWorld", xWorld, yWorld, zWorld);
+  logicWorld = new G4LogicalVolume(solidWorld, worldMat, "logicWorld");
+  physWorld = new G4PVPlacement(0, G4ThreeVector(0., 0., 0.), logicWorld,
+                                "physWorld", 0, false, 100, true);
+
+  // Build the setup
+  ConstructSetup();
 
   G4Box *solidDetector =
-      new G4Box("solidDetector", 0.005 * m, 0.005 * m, 0.01 * m);
+      new G4Box("solidDetector", 1.15 * mm, 1.15 * mm, 5.0 * mm);
 
   LogicDetector = new G4LogicalVolume(solidDetector, worldMat, "LogicDetector");
 
@@ -81,11 +137,13 @@ G4VPhysicalVolume *MyDetectorConstruction::Construct() {
     for (G4int j = 0; j < 100; j++) {
       G4VPhysicalVolume *physDetector = new G4PVPlacement(
           0,
-          G4ThreeVector(-0.5 * m + (i + 0.5) * m / 100,
-                        -0.5 * m + (j + 0.5) * m / 100, 0.49 * m),
+          G4ThreeVector(-115.0 * mm + (i + 0.5) * 2.3 * mm,
+                        -115 * mm + (j + 0.5) * 2.3 * mm, 0.21 * m),
           LogicDetector, "physDetector", logicWorld, false, j + i * 100, true);
     }
   }
+
+  // Finally we return the physWorld as output
 
   return physWorld;
 }

@@ -1,3 +1,7 @@
+/*This is the main simulation file*/
+
+/*Including all the required header files*/
+
 #include <iostream>
 
 #include "G4RunManager.hh"
@@ -24,28 +28,36 @@ int main(int argc, char **argv) {
   runManager->Initialize();
 
   // Initialize the visualization manager
+  // G4VisManager *visManager = new G4VisExecutive();
+  // visManager->Initialize();
+
+  // // Get the user interface manager
+  // G4UImanager *UImanager = G4UImanager::GetUIpointer();
+
+  // // Set up visualization commands
+  // UImanager->ApplyCommand("/control/execute vis.mac");
+  // UImanager->ApplyCommand("/vis/open OGL "); // Use Qt-based OpenGL viewer
+
+  G4UIExecutive *ui = 0;
+
+  if (argc == 1) {
+    ui = new G4UIExecutive(argc, argv);
+  }
+
   G4VisManager *visManager = new G4VisExecutive();
   visManager->Initialize();
 
-  // Get the user interface manager
   G4UImanager *UImanager = G4UImanager::GetUIpointer();
 
-  // Set up visualization commands
-  UImanager->ApplyCommand("/vis/open OGL "); // Use Qt-based OpenGL viewer
-  UImanager->ApplyCommand(
-      "/vis/viewer/set/viewpointVector 1 0 0"); // Adjust camera
-  UImanager->ApplyCommand("/vis/drawVolume");   // Draw the detector geometry
-  UImanager->ApplyCommand("/vis/viewer/set/autoRefresh true"); // Enable
-  // auto-refresh
-
-  UImanager->ApplyCommand("/vis/scene/add/trajectories smooth"); //
-  UImanager->ApplyCommand("vis/scene/endOfEventAction accumulate");
-  UImanager->ApplyCommand("/vis/scene/create"); // Create the scene
-
-  // Create a UI executive session (for interactive UI if needed)
-  G4UIExecutive *ui = new G4UIExecutive(argc, argv);
-  // Start the interactive session
-  ui->SessionStart();
+  if (ui) {
+    UImanager->ApplyCommand("/control/execute vis.mac");
+    // finally we start the session
+    ui->SessionStart();
+  } else {
+    G4String command = "/control/execute ";
+    G4String fileName = argv[1];
+    UImanager->ApplyCommand(command + fileName);
+  }
 
   // Clean up after the UI session ends
   // delete ui;
