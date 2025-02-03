@@ -7,7 +7,8 @@ MyPhysicsList::MyPhysicsList()
 {
   RegisterPhysics(new G4EmStandardPhysics());
   G4OpticalPhysics *opticalPhysics = new G4OpticalPhysics();
-  opticalPhysics->SetFiniteRiseTime(true); // Enable finite rise time
+  // opticalPhysics->SetFiniteRiseTime(true); // Enable finite rise time
+  // opticalPhysics->setByParticleType(true);
   RegisterPhysics(opticalPhysics);
   // RegisterPhysics (new G4DecayPhysics());
   // RegisterPhysics (new G4RadioactiveDecayPhysics());
