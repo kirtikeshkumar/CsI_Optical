@@ -78,7 +78,8 @@ void MyDetectorConstruction::DefineMaterials() {
       28 * cm, 34 * cm}; // absorption length (needs value modification)
   G4MaterialPropertiesTable *mptCsITl = new G4MaterialPropertiesTable();
   mptCsITl->AddProperty("RINDEX", energy, rindexCsI_Tl, 2);
-  mptCsITl->AddProperty("SCINTILLATIONCOMPONENT1", energy_spectrum,
+  mptCsITl->AddConstProperty("SCINTILLATIONRISETIME1", 20 * ns);
+  mptCsITl->AddProperty("SCINTILLATIONCOMPONENT", energy_spectrum,
                         energy_fraction, 27);
   mptCsITl->AddConstProperty("SCINTILLATIONYIELD",
                              54 / keV); // Light yeild in photons/keV
@@ -86,10 +87,14 @@ void MyDetectorConstruction::DefineMaterials() {
                              1.0); // stdDev in no. of photons =
                                    // sqrt(SCINTILLATIONTEILD)*RESOLUTIONSCALE
   mptCsITl->AddConstProperty("SCINTILLATIONTIMECONSTANT1",
-                             1000 * ns); // Primary Decay Time
-  mptCsITl->AddConstProperty("SCINTILLATIONYIELD1", 1.);
+                             680 * ns); // Primary Decay Time
+  mptCsITl->AddConstProperty("SCINTILLATIONTIMECONSTANT2",
+                             3340 * ns); // Secondary Decay Time
+  mptCsITl->AddConstProperty("SCINTILLATIONYIELD1", 0.64);
+  mptCsITl->AddConstProperty("SCINTILLATIONYIELD2", 0.36);
   mptCsITl->AddProperty("ABSLENGTH", energy, absorption, 2);
   CsI_Tl->SetMaterialPropertiesTable(mptCsITl);
+  CsI_Tl->GetIonisation()->SetBirksConstant(0.0071 * mm / MeV);
 
   // Defining mirror surface
   mirrorSurface = new G4OpticalSurface("mirrorSurface");
